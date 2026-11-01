@@ -225,7 +225,7 @@
       <li>롤당 시공 평수는 규격으로 계산해요. 실크·광폭 합지는 약 5평, 소폭 합지는 약 2평이에요.</li>
       <li><b>방 크기 모드</b>: 벽은 네 면을 따로 나눠서, 면마다 벽 길이 ÷ 롤 폭을 올림해 폭 수를 구해요.</li>
       <li>한 폭 길이 = 천장 높이 + 재단 여유. 무늬가 있으면 반복 간격 단위로 올려서 잘라요.</li>
-      <li>한 롤에서 나오는 폭 수만큼 묶어서 롤 수를 세요. 남는 자투리는 다른 폭에 쓰지 않는 보수적인 계산이에요.</li>
+      <li>모든 방의 폭을 모아서 긴 폭부터 롤에 채워 넣어요. 한 방에서 남은 롤 자투리를 다음 방이나 천장에 이어 쓰는 실제 현장 방식이에요.</li>
       <li>천장은 긴 방향으로 붙이는 걸 기준으로 해요.</li>
       <li>문·창은 면적만큼 통째로 빠지는 폭만 차감해요. 문 위·창 아래 짧은 폭은 그대로 필요해요.</li>
       <li>몰딩, 우물천장, 붙박이장 안쪽 등 현장에 따라 달라지니 발주 전에 꼭 현장 확인해 주세요.</li>
@@ -338,6 +338,17 @@
     return PAPERS[k];
   }
 
+  // 자투리 활용: 긴 폭부터 남은 롤에 채워 넣기 (First-Fit Decreasing)
+  function pack(list, L){
+    let rolls = 0; const rem = [];
+    list.slice().sort((a,b) => b - a).forEach(len => {
+      if (len > L){ rolls += Math.ceil(len / L); return; }
+      const i = rem.findIndex(r => r >= len);
+      if (i >= 0) rem[i] -= len; else { rem.push(L - len); rolls++; }
+    });
+    return rolls;
+  }
+
   // 폭 길이: 높이 + 여유, 무늬 반복 단위로 올림
   function stripLen(len, trim, rep){
     const raw = len + trim;
@@ -366,6 +377,7 @@
 
     let warn = '';
     let totWallStrips = 0, totWallRolls = 0, totCeilRolls = 0, totArea = 0;
+    const wallList = [], ceilList = [];
     const rows = rooms.map(r => {
       // 벽
       const sl = stripLen(r.h, trim, rep);
@@ -390,12 +402,15 @@
         ceilRolls = cPer >= 1 ? Math.ceil(ceilStrips / cPer) : Math.ceil(ceilStrips * csl / p.l);
         ceilArea = r.l * r.w;
       }
-      totWallStrips += strips; totWallRolls += wallRolls; totCeilRolls += ceilRolls;
+      for (let i = 0; i < strips; i++) wallList.push(sl);
+      if (r.ceil) for (let i = 0; i < ceilStrips; i++) ceilList.push(stripLen(Math.max(r.l, r.w), trim, rep));
+      totWallStrips += strips;
       totArea += wallArea + ceilArea;
       return {r, sl, strips, deduct, perRoll, wallRolls, ceilStrips, ceilRolls, cPer, area:(wallArea + ceilArea)/1e6};
     });
 
-    const rawRolls = totWallRolls + totCeilRolls;
+    totWallRolls = pack(wallList, p.l); totCeilRolls = pack(ceilList, p.l);
+    const rawRolls = pack(wallList.concat(ceilList), p.l);
     const total = Math.ceil(rawRolls * (1 + loss));
     const area = totArea / 1e6, pyeong = area / 3.3058;
     const lossTxt = loss > 0 ? '+' + Math.round(loss*100) + '% 포함' : '여유분 없음';
@@ -404,23 +419,24 @@
       '<div class="big">' +
         '<div class="tile" style="grid-column:1/-1"><div class="k">' + p.name + ' · 총 필요 수량</div><div class="v">' + fmt(total) + '<small>롤</small></div><div class="d">' + p.w + 'mm × ' + (p.l/1000) + 'm · ' + lossTxt + '</div></div>' +
         '<div class="tile"><div class="k">벽</div><div class="v">' + fmt(totWallRolls) + '<small>롤</small></div><div class="d">' + fmt(totWallStrips) + '폭</div></div>' +
-        '<div class="tile"><div class="k">천장</div><div class="v">' + fmt(totCeilRolls) + '<small>롤</small></div><div class="d">' + (totCeilRolls ? '긴 방향 붙임' : '미포함') + '</div></div>' +
+        '<div class="tile"><div class="k">천장</div><div class="v">' + fmt(totCeilRolls) + '<small>롤</small></div><div class="d">' + (totCeilRolls ? fmt(ceilList.length) + '폭' : '미포함') + '</div></div>' +
       '</div>' +
       '<table class="room-res">' +
         rows.map(x =>
-          '<tr><td>' + esc(x.r.name) + '<br><span style="font-size:12px;color:#8f887d">' + fmt(x.r.l) + '×' + fmt(x.r.w) + ' · H' + fmt(x.r.h) + '</span></td><td>벽 ' + x.strips + '폭 → ' + x.wallRolls + '롤' +
+          '<tr><td>' + esc(x.r.name) + '<br><span style="font-size:12px;color:#8f887d">' + fmt(x.r.l) + '×' + fmt(x.r.w) + ' · H' + fmt(x.r.h) + '</span></td><td>벽 ' + x.strips + '폭' +
           (x.deduct ? '<br><span style="font-size:12px;color:#8f887d">문·창 −' + x.deduct + '폭</span>' : '') +
-          (x.r.ceil ? '<br>천장 ' + x.ceilStrips + '폭 → ' + x.ceilRolls + '롤' : '') + '</td></tr>').join('') +
+          (x.r.ceil ? '<br>천장 ' + x.ceilStrips + '폭' : '') + '</td></tr>').join('') +
         '<tr><td>한 폭 재단 길이</td><td>' + fmt(rows[0].sl) + 'mm' + (rep ? ' (무늬 ' + rep + 'mm 맞춤)' : '') + ' · 롤당 ' + rows[0].perRoll + '폭</td></tr>' +
         '<tr><td>도배 면적</td><td>' + area.toFixed(2) + '㎡ (약 ' + pyeong.toFixed(1) + '평)</td></tr>' +
       '</table>' +
+      (totWallRolls + totCeilRolls > rawRolls ? '<p class="hint" style="color:#a59e92">벽과 천장을 합쳐 자투리를 활용하면 ' + (totWallRolls + totCeilRolls - rawRolls) + '롤이 줄어서 총 ' + rawRolls + '롤(여유분 전)이에요.</p>' : '') +
       '<div class="actions"><button class="btn primary" id="copyBtn" type="button">결과 복사</button><button class="btn ghost" id="resetBtn" type="button">초기화</button></div>';
 
     lastText =
       '[MAdE design studio] 벽지 산출\n' +
       '벽지: ' + p.name + ' (' + p.w + 'mm × ' + (p.l/1000) + 'm)' + (rep ? ', 무늬 반복 ' + rep + 'mm' : '') + '\n' +
-      rows.map(x => '· ' + x.r.name + ' ' + fmt(x.r.l) + '×' + fmt(x.r.w) + ' H' + fmt(x.r.h) + ' — 벽 ' + x.wallRolls + '롤' + (x.r.ceil ? ' / 천장 ' + x.ceilRolls + '롤' : '') + (x.r.doors||x.r.wins ? ' (문 ' + x.r.doors + ', 창 ' + x.r.wins + ')' : '')).join('\n') + '\n' +
-      '합계: ' + total + '롤 (' + lossTxt + ')\n' +
+      rows.map(x => '· ' + x.r.name + ' ' + fmt(x.r.l) + '×' + fmt(x.r.w) + ' H' + fmt(x.r.h) + ' — 벽 ' + x.strips + '폭' + (x.r.ceil ? ' / 천장 ' + x.ceilStrips + '폭' : '') + (x.r.doors||x.r.wins ? ' (문 ' + x.r.doors + ', 창 ' + x.r.wins + ')' : '')).join('\n') + '\n' +
+      '합계: ' + total + '롤 (' + lossTxt + ', 자투리 활용)\n' +
       '도배 면적: ' + area.toFixed(2) + '㎡ (약 ' + pyeong.toFixed(1) + '평)\n' +
       '※ 참고용 산출이며 현장 확인 후 발주하세요.';
 
