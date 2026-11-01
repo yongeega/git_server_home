@@ -125,7 +125,7 @@
       </div>
       <div class="grid2">
         <div><label class="f" for="stock">자재 1본 길이</label><div class="inp"><select id="stock"><option value="3600" selected>3600 mm</option><option value="2400">2400 mm</option><option value="3000">3000 mm</option></select></div></div>
-        <div><label class="f" for="blk">가로대 간격</label><div class="inp"><select id="blk"><option value="0">가로대 없음</option><option value="600">600 mm</option><option value="900" selected>900 mm</option><option value="1200">1200 mm</option></select></div></div>
+        <div><label class="f" for="blk">중간 보강재 간격</label><div class="inp"><select id="blk"><option value="0">보강재 없음</option><option value="600">600 mm</option><option value="900" selected>900 mm</option><option value="1200">1200 mm</option></select></div></div>
       </div>
       <p class="hint" id="spacingHint"></p>
     </section>
@@ -174,9 +174,9 @@
   <section class="card">
     <h2 class="step"><i>NOTE</i>계산 기준</h2>
     <ul class="notes">
-      <li>스터드 간격은 마감재에 맞춰 자동 적용돼요. 석고보드 450mm, 합판·MDF 407mm(1220 ÷ 3).</li>
-      <li>스터드는 세로 높이로 재단하고, 한 본에서 두 개 이상 나오면 함께 써요.</li>
-      <li>상·하부 깔도리와 가로대는 가로 길이 기준으로 따로 잡고, 남는 자투리는 재사용하지 않아요.</li>
+      <li>기둥 간격은 마감재에 맞춰 자동 적용돼요. 석고보드 450mm, 합판·MDF 407mm(1220 ÷ 3).</li>
+      <li>세로 기둥(스터드)은 세로 높이로 재단하고, 한 본에서 두 개 이상 나오면 함께 써요.</li>
+      <li>위·아래 가로 프레임과 중간 보강재는 가로 길이 기준으로 따로 잡고, 남는 자투리는 재사용하지 않아요.</li>
       <li>판재는 세로·가로 붙임 중 적게 드는 방향으로 계산해요.</li>
       <li>높이가 자재 길이를 넘으면 이음이 필요하고, 수량은 그만큼 늘어나요.</li>
       <li>현장 상황(수평·수직, 몰딩, 개구부 보강)에 따라 달라질 수 있으니 발주 전에 꼭 현장 확인해 주세요.</li>
@@ -230,7 +230,7 @@
     const b = BOARDS[val('board')], frame = val('frame');
     const sides = +val('sides'), ply = +val('ply'), loss = +val('loss')/100;
     const sp = b.spacing;
-    $('spacingHint').textContent = b.name + ' 기준 스터드 간격 ' + sp + 'mm가 자동 적용돼요.';
+    $('spacingHint').textContent = b.name + ' 기준 기둥 간격 ' + sp + 'mm가 자동 적용돼요.';
     save();
 
     if (W <= 0 || H <= 0){
@@ -290,7 +290,7 @@
     const workArea = netArea * sides * plyN;
 
     let warn = '';
-    if (H > L) warn += '<div class="warn">높이 ' + fmt(H) + 'mm가 자재 길이 ' + fmt(L) + 'mm보다 길어서 스터드 이음이 필요해요. 이음 위치에 가로대 보강을 꼭 넣어 주세요.</div>';
+    if (H > L) warn += '<div class="warn">높이 ' + fmt(H) + 'mm가 자재 길이 ' + fmt(L) + 'mm보다 길어서 스터드 이음이 필요해요. 이음 위치에 중간 보강재를 꼭 넣어 주세요.</div>';
     if (openArea > W*H) warn += '<div class="warn">개구부 면적이 벽 면적보다 커요. 개구부 크기를 다시 확인해 주세요.</div>';
 
     const lossTxt = loss > 0 ? ' (+' + Math.round(loss*100) + '% 포함)' : '';
@@ -300,9 +300,9 @@
         matList.map(m => '<div class="tile"><div class="k">마감재 · ' + m.bb.name + '</div><div class="v">' + fmt(m.total) + '<small>장</small></div><div class="d">' + (sides===2?'양쪽':'한쪽') + ' · ' + m.layers + '겹' + lossTxt + '</div></div>').join('') +
       '</div>' +
       '<table>' +
-        '<tr><td class="k2">스터드(세로대)</td><td>' + studs + '개 → ' + studStock + '본 <span style="color:#a59e92">(' + studNote + ')</span></td></tr>' +
-        '<tr><td class="k2">상·하부 깔도리</td><td>2줄 × ' + perRow + '본 = ' + plateStock + '본</td></tr>' +
-        '<tr><td class="k2">가로대</td><td>' + (midRows ? midRows + '줄 × ' + perRow + '본 = ' + blkStock + '본' : '없음') + '</td></tr>' +
+        '<tr><td class="k2">세로 기둥(스터드)</td><td>' + studs + '개 → ' + studStock + '본 <span style="color:#a59e92">(' + studNote + ')</span></td></tr>' +
+        '<tr><td class="k2">위·아래 가로 프레임</td><td>2줄 × ' + perRow + '본 = ' + plateStock + '본</td></tr>' +
+        '<tr><td class="k2">중간 보강재</td><td>' + (midRows ? midRows + '줄 × ' + perRow + '본 = ' + blkStock + '본' : '없음') + '</td></tr>' +
         matList.map(m => '<tr><td class="k2">' + m.bb.name + ' 한 면·한 겹</td><td>' + m.perLayer + '장 (' + m.dir + ')' + (m.deduct ? ' −' + m.deduct + '장 개구부' : '') + '</td></tr>').join('') +
         '<tr><td class="k2">벽 면적</td><td>' + area.toFixed(2) + '㎡' + (openArea ? ' → 실면적 ' + netArea.toFixed(2) + '㎡' : '') + ' (약 ' + pyeong.toFixed(1) + '평)</td></tr>' +
         '<tr><td class="k2">총 시공 면적</td><td>' + workArea.toFixed(2) + '㎡</td></tr>' +
@@ -313,7 +313,7 @@
       '[MAdE design studio] 가벽 자재 산출\n' +
       '벽 크기: ' + fmt(W) + ' × ' + fmt(H) + ' mm' + (ops.length ? ' (개구부 ' + ops.map(o=>o.w+'×'+o.h+(o.n>1?' ×'+o.n:'')).join(', ') + ')' : '') + '\n' +
       '골조: ' + FRAMES[frame] + ' ' + fmt(L) + 'mm — ' + frameTotal + '본' + lossTxt + '\n' +
-      '  · 스터드 ' + studStock + '본 / 깔도리 ' + plateStock + '본 / 가로대 ' + blkStock + '본 (간격 ' + sp + 'mm)\n' +
+      '  · 스터드 ' + studStock + '본 / 위·아래 프레임 ' + plateStock + '본 / 중간 보강재 ' + blkStock + '본 (간격 ' + sp + 'mm)\n' +
       '마감재: ' + b.name + ' · ' + (sides===2?'양쪽':'한쪽') + ' ' + plyN + 'ply\n' +
       matList.map(m => '  · ' + m.bb.name + ' (' + m.bb.w + '×' + m.bb.h + ') — ' + m.total + '장' + lossTxt).join('\n') + '\n' +
       '시공 면적: ' + workArea.toFixed(2) + '㎡\n' +
