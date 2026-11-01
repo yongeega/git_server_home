@@ -199,6 +199,13 @@
         <div><label class="f" for="trim">재단 여유 (위·아래)</label><div class="inp"><input id="trim" type="number" inputmode="numeric" min="0" value="100"><em>mm</em></div></div>
       </div>
       <p class="hint" style="margin-top:-6px;margin-bottom:14px">무늬 없는 벽지는 0으로 두세요. 무늬가 있으면 한 폭을 반복 간격 단위로 맞춰 자르기 때문에 수량이 늘어나요.</p>
+      <div class="row">
+        <label class="f">자투리</label>
+        <div class="chips">
+          <label class="chip"><input type="radio" name="offcut" value="reuse" checked><span>자투리 활용<small>남은 롤 다음 방에</small></span></label>
+          <label class="chip"><input type="radio" name="offcut" value="fresh"><span>방마다 새 롤<small>무늬·로트 맞춤</small></span></label>
+        </div>
+      </div>
       </div>
       <div class="row">
         <label class="f">여유분(로스)</label>
@@ -225,7 +232,8 @@
       <li>롤당 시공 평수는 규격으로 계산해요. 실크·광폭 합지는 약 5평, 소폭 합지는 약 2평이에요.</li>
       <li><b>방 크기 모드</b>: 벽은 네 면을 따로 나눠서, 면마다 벽 길이 ÷ 롤 폭을 올림해 폭 수를 구해요.</li>
       <li>한 폭 길이 = 천장 높이 + 재단 여유. 무늬가 있으면 반복 간격 단위로 올려서 잘라요.</li>
-      <li>모든 방의 폭을 모아서 긴 폭부터 롤에 채워 넣어요. 한 방에서 남은 롤 자투리를 다음 방이나 천장에 이어 쓰는 실제 현장 방식이에요.</li>
+      <li><b>자투리 활용</b>: 모든 방의 폭을 모아 남은 롤부터 채워 넣어요. 남은 롤을 다음 방이나 천장에 이어 써요.</li>
+      <li><b>방마다 새 롤</b>: 방마다, 벽과 천장을 따로 롤을 새로 뜯어 계산해요. 무늬를 맞추거나 방마다 벽지가 다를 때 써요.</li>
       <li>천장은 긴 방향으로 붙이는 걸 기준으로 해요.</li>
       <li>문·창은 면적만큼 통째로 빠지는 폭만 차감해요. 문 위·창 아래 짧은 폭은 그대로 필요해요.</li>
       <li>몰딩, 우물천장, 붙박이장 안쪽 등 현장에 따라 달라지니 발주 전에 꼭 현장 확인해 주세요.</li>
@@ -377,7 +385,8 @@
 
     let warn = '';
     let totWallStrips = 0, totWallRolls = 0, totCeilRolls = 0, totArea = 0;
-    const wallList = [], ceilList = [];
+    const wallList = [], ceilList = [], roomLists = [];
+    const reuse = val('offcut') === 'reuse';
     const rows = rooms.map(r => {
       // 벽
       const sl = stripLen(r.h, trim, rep);
@@ -402,15 +411,24 @@
         ceilRolls = cPer >= 1 ? Math.ceil(ceilStrips / cPer) : Math.ceil(ceilStrips * csl / p.l);
         ceilArea = r.l * r.w;
       }
-      for (let i = 0; i < strips; i++) wallList.push(sl);
-      if (r.ceil) for (let i = 0; i < ceilStrips; i++) ceilList.push(stripLen(Math.max(r.l, r.w), trim, rep));
+      const wL = Array(strips).fill(sl);
+      const cL = r.ceil ? Array(ceilStrips).fill(stripLen(Math.max(r.l, r.w), trim, rep)) : [];
+      wallList.push(...wL); ceilList.push(...cL);
+      roomLists.push([wL, cL]);
       totWallStrips += strips;
       totArea += wallArea + ceilArea;
       return {r, sl, strips, deduct, perRoll, wallRolls, ceilStrips, ceilRolls, cPer, area:(wallArea + ceilArea)/1e6};
     });
 
-    totWallRolls = pack(wallList, p.l); totCeilRolls = pack(ceilList, p.l);
-    const rawRolls = pack(wallList.concat(ceilList), p.l);
+    let rawRolls;
+    if (reuse){
+      totWallRolls = pack(wallList, p.l); totCeilRolls = pack(ceilList, p.l);
+      rawRolls = pack(wallList.concat(ceilList), p.l);
+    } else {
+      totWallRolls = roomLists.reduce((a, x) => a + pack(x[0], p.l), 0);
+      totCeilRolls = roomLists.reduce((a, x) => a + pack(x[1], p.l), 0);
+      rawRolls = totWallRolls + totCeilRolls;
+    }
     const total = Math.ceil(rawRolls * (1 + loss));
     const area = totArea / 1e6, pyeong = area / 3.3058;
     const lossTxt = loss > 0 ? '+' + Math.round(loss*100) + '% 포함' : '여유분 없음';
@@ -429,14 +447,14 @@
         '<tr><td>한 폭 재단 길이</td><td>' + fmt(rows[0].sl) + 'mm' + (rep ? ' (무늬 ' + rep + 'mm 맞춤)' : '') + ' · 롤당 ' + rows[0].perRoll + '폭</td></tr>' +
         '<tr><td>도배 면적</td><td>' + area.toFixed(2) + '㎡ (약 ' + pyeong.toFixed(1) + '평)</td></tr>' +
       '</table>' +
-      (totWallRolls + totCeilRolls > rawRolls ? '<p class="hint" style="color:#a59e92">벽과 천장을 합쳐 자투리를 활용하면 ' + (totWallRolls + totCeilRolls - rawRolls) + '롤이 줄어서 총 ' + rawRolls + '롤(여유분 전)이에요.</p>' : '') +
+      (reuse && totWallRolls + totCeilRolls > rawRolls ? '<p class="hint" style="color:#a59e92">벽과 천장을 합쳐 자투리를 활용하면 ' + (totWallRolls + totCeilRolls - rawRolls) + '롤이 줄어서 총 ' + rawRolls + '롤(여유분 전)이에요.</p>' : '') +
       '<div class="actions"><button class="btn primary" id="copyBtn" type="button">결과 복사</button><button class="btn ghost" id="resetBtn" type="button">초기화</button></div>';
 
     lastText =
       '[MAdE design studio] 벽지 산출\n' +
       '벽지: ' + p.name + ' (' + p.w + 'mm × ' + (p.l/1000) + 'm)' + (rep ? ', 무늬 반복 ' + rep + 'mm' : '') + '\n' +
       rows.map(x => '· ' + x.r.name + ' ' + fmt(x.r.l) + '×' + fmt(x.r.w) + ' H' + fmt(x.r.h) + ' — 벽 ' + x.strips + '폭' + (x.r.ceil ? ' / 천장 ' + x.ceilStrips + '폭' : '') + (x.r.doors||x.r.wins ? ' (문 ' + x.r.doors + ', 창 ' + x.r.wins + ')' : '')).join('\n') + '\n' +
-      '합계: ' + total + '롤 (' + lossTxt + ', 자투리 활용)\n' +
+      '합계: ' + total + '롤 (' + lossTxt + ', ' + (reuse ? '자투리 활용' : '방마다 새 롤') + ')\n' +
       '도배 면적: ' + area.toFixed(2) + '㎡ (약 ' + pyeong.toFixed(1) + '평)\n' +
       '※ 참고용 산출이며 현장 확인 후 발주하세요.';
 
@@ -517,7 +535,7 @@
   function save(){
     try {
       localStorage.setItem(KEY, JSON.stringify({
-        rooms:getRooms(), mode:val('mode'), py:$('py').value, htype:val('htype'), basis:val('basis'), pyceil:val('pyceil'), paper:val('paper'), cw:$('cw').value, cl:$('cl').value, rep:$('rep').value, trim:$('trim').value,
+        rooms:getRooms(), mode:val('mode'), offcut:val('offcut'), py:$('py').value, htype:val('htype'), basis:val('basis'), pyceil:val('pyceil'), paper:val('paper'), cw:$('cw').value, cl:$('cl').value, rep:$('rep').value, trim:$('trim').value,
         loss:val('loss'), dw:$('dw').value, dh:$('dh').value, ww:$('ww').value, wh:$('wh').value
       }));
     } catch(e){}
@@ -527,7 +545,7 @@
     try {
       const s = JSON.parse(localStorage.getItem(KEY) || 'null');
       if (!s || !s.rooms || !s.rooms.length) return false;
-      ['mode','htype','basis','pyceil'].forEach(k => s[k] && setRadio(k, s[k]));
+      ['mode','htype','basis','pyceil','offcut'].forEach(k => s[k] && setRadio(k, s[k]));
       if (s.py) $('py').value = s.py;
       ['cw','cl','rep','trim','dw','dh','ww','wh'].forEach(k => { if (s[k] != null) $(k).value = s[k]; });
       setRadio('paper', s.paper); setRadio('loss', s.loss);
@@ -541,7 +559,7 @@
     $('cw').value = 1060; $('cl').value = 15.6; $('rep').value = 0; $('trim').value = 100;
     $('dw').value = 900; $('dh').value = 2100; $('ww').value = 1500; $('wh').value = 1200;
     setRadio('paper','silk'); setRadio('loss','10');
-    setRadio('mode','py'); setRadio('htype','apt'); setRadio('basis','supply'); setRadio('pyceil','1'); $('py').value = 32;
+    setRadio('mode','py'); setRadio('htype','apt'); setRadio('basis','supply'); setRadio('pyceil','1'); setRadio('offcut','reuse'); $('py').value = 32;
     defaultRooms(); calc(); toast('초기화했어요');
   }
 
