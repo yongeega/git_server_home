@@ -93,8 +93,8 @@
   .room-head input{flex:1;font:inherit;font-size:15px;font-weight:700;border:none;border-bottom:1.5px dashed var(--line);padding:4px 2px;outline:none;background:transparent;min-width:0}
   .room-head input:focus{border-bottom-color:var(--ink)}
   .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
-  .grid3 .inp input{font-size:15px;padding:10px 30px 10px 10px}
-  .grid3 .inp em{right:9px;font-size:12px}
+  .grid3 .inp input{font-size:15px;padding:10px 8px;text-align:center}
+  .grid3 .inp em{display:none}
   .room-opts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center}
   .toggle{display:flex;align-items:center;gap:6px;font-size:14px;padding:8px 12px;border:1.5px solid var(--line);border-radius:999px;cursor:pointer;user-select:none}
   .toggle input{accent-color:var(--ink);width:16px;height:16px;margin:0}
@@ -104,6 +104,9 @@
   .stepper button{width:32px;height:36px;border:none;background:transparent;font-size:17px;cursor:pointer;color:var(--ink)}
   .crosslink{display:inline-block;margin-top:14px;font-size:13.5px;color:var(--ink);text-decoration:none;border-bottom:1px solid var(--ink);padding-bottom:1px}
   .room-res td:first-child{color:#bdb6aa}
+  .preset-chips{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+  .preset{font:inherit;font-size:14.5px;font-weight:500;padding:11px 0;border:1.5px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);cursor:pointer;transition:.15s}
+  .preset.on{background:var(--ink);border-color:var(--ink);color:#fff}
   .chip-btn{flex:1;font:inherit;font-size:14px;padding:8px 0;border:1.5px solid var(--line);border-radius:999px;background:#fff;cursor:pointer;color:var(--ink)}
   .chip-btn:active{background:var(--ink);color:#fff}
 </style>
@@ -159,8 +162,10 @@
         <p class="hint" id="pyHint"></p>
       </div>
       <div id="roomPanel" hidden>
+      <label class="f">공간 선택 <span style="color:var(--sub);font-size:12px">· 눌러서 추가/빼기</span></label>
+      <div class="preset-chips" id="presets"></div>
       <div id="rooms"></div>
-      <button type="button" class="btn-line" id="addRoom" style="margin-top:0">+ 방 추가</button>
+
       <details id="openDetails">
         <summary>문·창 기본 크기</summary>
         <p class="hint" style="margin-top:8px">방마다 문·창 개수만 넣으면 이 크기로 빼서 계산해요.</p>
@@ -241,20 +246,61 @@
   const $ = id => document.getElementById(id);
   const val = n => document.querySelector('input[name="'+n+'"]:checked').value;
   const fmt = n => n.toLocaleString('ko-KR');
-  const KEY = 'made-wallpaper-calc-v1';
+  const KEY = 'made-wallpaper-calc-v2';
   let lastText = '', roomSeq = 0;
+
+  const PRESETS = [
+    {name:'거실', l:5400, w:4200, doors:0, wins:1},
+    {name:'안방', l:3900, w:3600, doors:1, wins:1},
+    {name:'방1', l:3300, w:3000, doors:1, wins:1},
+    {name:'방2', l:3000, w:2700, doors:1, wins:1},
+    {name:'방3', l:3000, w:2700, doors:1, wins:1},
+    {name:'방4', l:3000, w:2700, doors:1, wins:1},
+    {name:'방5', l:3000, w:2700, doors:1, wins:1}
+  ];
+  PRESETS.forEach(pr => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'preset'; b.textContent = pr.name; b.dataset.p = pr.name;
+    b.onclick = () => {
+      const ex = document.querySelector('.room[data-p="' + pr.name + '"]');
+      if (ex) ex.remove();
+      else {
+        addRoom({name:pr.name, preset:pr.name, l:pr.l, w:pr.w, h:2300, ceil:true, doors:pr.doors, wins:pr.wins});
+        sortRooms();
+      }
+      calc();
+    };
+    $('presets').appendChild(b);
+  });
+  const custom = document.createElement('button');
+  custom.type = 'button'; custom.className = 'preset'; custom.textContent = '+ 직접';
+  custom.onclick = () => { addRoom(); calc(); };
+  $('presets').appendChild(custom);
+  function sortRooms(){
+    const order = PRESETS.map(p => p.name);
+    const els = [...document.querySelectorAll('.room')];
+    els.sort((a,b) => {
+      const ia = a.dataset.p ? order.indexOf(a.dataset.p) : 99, ib = b.dataset.p ? order.indexOf(b.dataset.p) : 99;
+      return ia - ib;
+    }).forEach(e => $('rooms').appendChild(e));
+  }
+  function syncPresets(){
+    document.querySelectorAll('.preset[data-p]').forEach(b =>
+      b.classList.toggle('on', !!document.querySelector('.room[data-p="' + b.dataset.p + '"]')));
+  }
 
   function addRoom(r){
     roomSeq++;
-    r = r || {name:'방 ' + roomSeq, l:3600, w:3000, h:2300, ceil:true, doors:1, wins:1};
+    r = r || {name:'공간 ' + roomSeq, l:3600, w:3000, h:2300, ceil:true, doors:1, wins:1};
     const el = document.createElement('div');
     el.className = 'room';
+    if (r.preset) el.dataset.p = r.preset;
     el.innerHTML =
       '<div class="room-head"><input class="rn" value="' + String(r.name).replace(/"/g,'&quot;') + '" aria-label="방 이름"><button type="button" class="icon-btn rm" aria-label="방 삭제" style="height:34px;width:34px">×</button></div>' +
       '<div class="grid3">' +
-        '<div><label class="f">가로</label><div class="inp"><input class="rl" type="number" inputmode="numeric" min="0" value="' + r.l + '"><em>mm</em></div></div>' +
-        '<div><label class="f">세로</label><div class="inp"><input class="rw" type="number" inputmode="numeric" min="0" value="' + r.w + '"><em>mm</em></div></div>' +
-        '<div><label class="f">천장 높이</label><div class="inp"><input class="rh" type="number" inputmode="numeric" min="0" value="' + r.h + '"><em>mm</em></div></div>' +
+        '<div><label class="f">가로 <span style="font-size:11px">mm</span></label><div class="inp"><input class="rl" type="number" inputmode="numeric" min="0" value="' + r.l + '"><em>mm</em></div></div>' +
+        '<div><label class="f">세로 <span style="font-size:11px">mm</span></label><div class="inp"><input class="rw" type="number" inputmode="numeric" min="0" value="' + r.w + '"><em>mm</em></div></div>' +
+        '<div><label class="f">천장 높이 <span style="font-size:11px">mm</span></label><div class="inp"><input class="rh" type="number" inputmode="numeric" min="0" value="' + r.h + '"><em>mm</em></div></div>' +
       '</div>' +
       '<div class="room-opts">' +
         '<label class="toggle"><input type="checkbox" class="rc"' + (r.ceil ? ' checked' : '') + '>천장 포함</label>' +
@@ -270,7 +316,7 @@
     });
     $('rooms').appendChild(el);
   }
-  $('addRoom').onclick = () => { addRoom(); calc(); };
+
 
   function getRooms(){
     return [...document.querySelectorAll('.room')].map(e => ({
@@ -279,6 +325,7 @@
       w: +e.querySelector('.rw').value || 0,
       h: +e.querySelector('.rh').value || 0,
       ceil: e.querySelector('.rc').checked,
+      preset: e.dataset.p || '',
       doors: +e.querySelector('.rd').textContent,
       wins: +e.querySelector('.rwn').textContent
     }));
@@ -304,6 +351,7 @@
     const D = {w:+$('dw').value||0, h:+$('dh').value||0}, Wn = {w:+$('ww').value||0, h:+$('wh').value||0};
     save();
 
+    syncPresets();
     const mode = val('mode');
     $('pyPanel').hidden = mode !== 'py';
     $('roomPanel').hidden = mode !== 'room';
@@ -312,7 +360,7 @@
 
     const rooms = getRooms().filter(r => r.l > 0 && r.w > 0 && r.h > 0);
     if (!rooms.length || p.w <= 0 || p.l <= 0){
-      $('out').innerHTML = '<p class="empty">방 크기(가로·세로·천장 높이)와 벽지 규격을 입력하면 결과가 여기에 나와요.</p>';
+      $('out').innerHTML = '<p class="empty">위에서 거실·안방·방을 골라 크기를 입력하면 결과가 여기에 나와요.</p>';
       lastText = ''; return;
     }
 
@@ -478,14 +526,15 @@
     $('dw').value = 900; $('dh').value = 2100; $('ww').value = 1500; $('wh').value = 1200;
     setRadio('paper','silk'); setRadio('loss','10');
     setRadio('mode','py'); setRadio('htype','apt'); setRadio('basis','supply'); setRadio('pyceil','1'); $('py').value = 32;
-    addRoom(); calc(); toast('초기화했어요');
+    defaultRooms(); calc(); toast('초기화했어요');
   }
 
   document.querySelectorAll('#f > section input').forEach(el => {
     if (el.closest('.room')) return;
     el.addEventListener('input', calc); el.addEventListener('change', calc);
   });
-  if (!load()) addRoom();
+  function defaultRooms(){ ['거실','안방','방1'].forEach(n => document.querySelector('.preset[data-p="' + n + '"]').click()); }
+  if (!load()) defaultRooms();
   calc();
 })();
 </script>
