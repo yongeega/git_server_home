@@ -174,8 +174,8 @@
   <section class="card">
     <h2 class="step"><i>NOTE</i>계산 기준</h2>
     <ul class="notes">
-      <li>기둥 간격은 마감재에 맞춰 자동 적용돼요. 석고보드 450mm, 합판·MDF 407mm(1220 ÷ 3).</li>
-      <li>세로 기둥(스터드)은 세로 높이로 재단하고, 한 본에서 두 개 이상 나오면 함께 써요.</li>
+      <li>스터드 간격은 마감재에 맞춰 자동 적용돼요. 석고보드 450mm, 합판·MDF 407mm(1220 ÷ 3).</li>
+      <li>스터드는 세로 높이로 재단하고, 한 본에서 두 개 이상 나오면 함께 써요.</li>
       <li>위·아래 가로 프레임과 중간 보강재는 가로 길이 기준으로 따로 잡고, 남는 자투리는 재사용하지 않아요.</li>
       <li>판재는 세로·가로 붙임 중 적게 드는 방향으로 계산해요.</li>
       <li>높이가 자재 길이를 넘으면 이음이 필요하고, 수량은 그만큼 늘어나요.</li>
@@ -230,7 +230,7 @@
     const b = BOARDS[val('board')], frame = val('frame');
     const sides = +val('sides'), ply = +val('ply'), loss = +val('loss')/100;
     const sp = b.spacing;
-    $('spacingHint').textContent = b.name + ' 기준 기둥 간격 ' + sp + 'mm가 자동 적용돼요.';
+    $('spacingHint').textContent = b.name + ' 기준 스터드 간격 ' + sp + 'mm가 자동 적용돼요.';
     save();
 
     if (W <= 0 || H <= 0){
@@ -300,7 +300,7 @@
         matList.map(m => '<div class="tile"><div class="k">마감재 · ' + m.bb.name + '</div><div class="v">' + fmt(m.total) + '<small>장</small></div><div class="d">' + (sides===2?'양쪽':'한쪽') + ' · ' + m.layers + '겹' + lossTxt + '</div></div>').join('') +
       '</div>' +
       '<table>' +
-        '<tr><td class="k2">세로 기둥(스터드)</td><td>' + studs + '개 → ' + studStock + '본 <span style="color:#a59e92">(' + studNote + ')</span></td></tr>' +
+        '<tr><td class="k2">스터드</td><td>' + studs + '개 → ' + studStock + '본 <span style="color:#a59e92">(' + studNote + ')</span></td></tr>' +
         '<tr><td class="k2">위·아래 가로 프레임</td><td>2줄 × ' + perRow + '본 = ' + plateStock + '본</td></tr>' +
         '<tr><td class="k2">중간 보강재</td><td>' + (midRows ? midRows + '줄 × ' + perRow + '본 = ' + blkStock + '본' : '없음') + '</td></tr>' +
         matList.map(m => '<tr><td class="k2">' + m.bb.name + ' 한 면·한 겹</td><td>' + m.perLayer + '장 (' + m.dir + ')' + (m.deduct ? ' −' + m.deduct + '장 개구부' : '') + '</td></tr>').join('') +
